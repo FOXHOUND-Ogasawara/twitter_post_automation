@@ -18,8 +18,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     !process.env.X_ACCESS_TOKEN ||
     !process.env.X_ACCESS_TOKEN_SECRET
   ) {
-    console.error("Missing X API credentials in environment variables.");
-    return res.status(500).json({ error: "Server configuration error" });
+    const missing = [
+      !process.env.X_API_KEY && "X_API_KEY",
+      !process.env.X_API_KEY_SECRET && "X_API_KEY_SECRET",
+      !process.env.X_ACCESS_TOKEN && "X_ACCESS_TOKEN",
+      !process.env.X_ACCESS_TOKEN_SECRET && "X_ACCESS_TOKEN_SECRET",
+    ].filter(Boolean);
+    console.error("Missing X API credentials:", missing.join(", "));
+    return res.status(500).json({
+      error: "Server configuration error",
+      details: `Missing environment variables: ${missing.join(", ")}`,
+    });
   }
 
   const client = new TwitterApi({
@@ -30,35 +39,42 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   });
 
   try {
+    console.log("Start processing images...");
     const mediaIds = await Promise.all(
-      images.map(async (base64Image: string) => {
-        // Detect mime type
-        const match = base64Image.match(/^data:(image\/\w+);base64,/);
-        const mimeType = match ? match[1] : "image/jpeg";
+      images.map(async (base64Image: string, index: number) => {
+        try {
+          // Detect mime type
+          const match = base64Image.match(/^data:(image\/\w+);base64,/);
+          const mimeType = match ? match[1] : "image/jpeg";
 
-        // Map mime to extension string for twitter-api-v2 'type' option
-        // The library expects 'jpg', 'png', etc. when uploading buffers.
-        let type = "jpg";
-        if (mimeType === "image/png") type = "png";
-        if (mimeType === "image/gif") type = "gif";
-        if (mimeType === "image/webp") type = "webp";
+          let type = "jpg";
+          if (mimeType === "image/png") type = "png";
+          if (mimeType === "image/gif") type = "gif";
+          if (mimeType === "image/webp") type = "webp";
 
-        const cleanBase64 = base64Image.replace(/^data:image\/\w+;base64,/, "");
-        const imageBuffer = Buffer.from(cleanBase64, "base64");
+          const cleanBase64 = base64Image.replace(
+            /^data:image\/\w+;base64,/,
+            ""
+          );
+          const imageBuffer = Buffer.from(cleanBase64, "base64");
 
-        // Only pass mimeType. The library logic for Buffer uploads is specific.
-        // Documentation says: options.type is required if Buffer is passed without known extension path.
-        // options.type expects a file extension (e.g. "png") or a mime type (e.g. "image/png")?
-        // Checking library source via types: it often aliases 'type' to extension.
-        // Let's pass { type: extension, mimeType: mimeType } to be fully explicit.
-        const mediaId = await client.v1.uploadMedia(imageBuffer, {
-          mimeType,
-          type,
-        });
-        return mediaId;
+          console.log(
+            `Uploading image ${index + 1}... size: ${imageBuffer.length} bytes`
+          );
+          const mediaId = await client.v1.uploadMedia(imageBuffer, {
+            mimeType,
+            type,
+          });
+          return mediaId;
+        } catch (mediaErr: unknown) {
+          const mErr = mediaErr as Error;
+          console.error(`Error uploading image ${index + 1}:`, mErr);
+          throw mErr;
+        }
       })
     );
 
+    console.log("Images uploaded successfully. Posting tweet...");
     const tweet = await client.v2.tweet(text, {
       media: {
         media_ids: mediaIds as
@@ -69,17 +85,24 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       },
     });
 
+    console.log("Tweet posted successfully:", tweet.data.id);
     return res.status(200).json({
       success: true,
       postUrl: `https://x.com/user/status/${tweet.data.id}`,
       postId: tweet.data.id,
     });
   } catch (error: unknown) {
-    const err = error as any;
-    console.error("Twitter API Error:", err);
+    const err = error as any; // Still using any for the complex Twitter error object, but logging it explicitly
+    console.error("Twitter API Execution Error:", JSON.stringify(err, null, 2));
+
+    // Attempt to extract as much info as possible without breaking types too much
+    const errorMessage =
+      err instanceof Error ? err.message : "Internal Server Error";
+
     return res.status(500).json({
-      error: err.message || "Internal Server Error",
-      details: err.data || undefined,
+      error: errorMessage,
+      code: err.code || undefined,
+      data: err.data || undefined,
     });
   }
 }
