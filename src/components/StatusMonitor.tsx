@@ -1,5 +1,6 @@
-import React from 'react';
-import { Loader2, CheckCircle2, AlertCircle, Clock } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { Loader2, CheckCircle2, AlertCircle, Clock, Twitter } from 'lucide-react';
+import { getTimeline, type Tweet } from '../services/api';
 
 export interface PostGroup {
     id: string;
@@ -15,83 +16,118 @@ interface StatusMonitorProps {
     currentGroupIndex: number;
 }
 
-export const StatusMonitor: React.FC<StatusMonitorProps> = ({ groups, isPosting: _isPosting, currentGroupIndex: _currentGroupIndex }) => {
-    // Use _ prefix for unused props that are kept for interface completeness or future use
-    // Actually, we use groups. We don't use isPosting or currentGroupIndex directly in rendering logic below EXCEPT potential future expansion?
-    // Wait, currentGroupIndex is not used in the JSX below?
-    // Let's check logic. We map over groups. Highlight current?
-    // We can highlight current group using index. 
+export const StatusMonitor: React.FC<StatusMonitorProps> = ({ groups, isPosting, currentGroupIndex: _currentGroupIndex }) => {
+    const [timeline, setTimeline] = useState<Tweet[]>([]);
+    const [loadingTimeline, setLoadingTimeline] = useState(false);
 
-    if (groups.length === 0) {
-        return (
-            <div className="text-center py-8 text-gray-500 bg-gray-50 rounded-lg border border-dashed border-gray-200">
-                <Clock className="w-8 h-8 mx-auto mb-2 text-gray-400" />
-                待機中...
-            </div>
-        );
-    }
+    const fetchTimeline = async () => {
+        setLoadingTimeline(true);
+        const tweets = await getTimeline();
+        setTimeline(tweets);
+        setLoadingTimeline(false);
+    };
+
+    useEffect(() => {
+        fetchTimeline();
+        // Poll updates every 60 seconds if desired, but user req mainly implies "on post" or "on load"
+        // Also re-fetch when posting completes? We can't easily react to "completion" here without prop flags or effects.
+        // For now, simple initial load.
+    }, [isPosting]); // Re-fetch when posting status changes (start/end)
 
     const successCount = groups.filter(g => g.status === 'success').length;
-    const progress = Math.round((successCount / groups.length) * 100);
+    const progress = Math.round((successCount / Math.max(groups.length, 1)) * 100);
 
     return (
-        <div className="space-y-4">
-            {/* Progress Bar */}
-            <div className="bg-gray-100 rounded-full h-2 overflow-hidden">
-                <div
-                    className="bg-blue-600 h-full transition-all duration-500"
-                    style={{ width: `${progress}%` }}
-                />
-            </div>
+        <div className="flex flex-col space-y-6">
+            {/* Top: Progress Status */}
+            <div className="space-y-4 bg-white/80 backdrop-blur-sm p-4 rounded-xl border border-pop-cyan shadow-lg">
+                <h3 className="font-bold text-gray-700 flex items-center gap-2">
+                    <Loader2 className={`w-5 h-5 ${isPosting ? 'animate-spin text-pop-magenta' : 'text-gray-400'}`} />
+                    投稿ステータス
+                </h3>
 
-            <div className="flex justify-between text-sm font-medium text-gray-600">
-                <span>進行状況: {successCount} / {groups.length} グループ完了</span>
-                <span>{progress}%</span>
-            </div>
-
-            <div className="space-y-2 max-h-[300px] overflow-y-auto pr-1 custom-scrollbar">
-                {groups.map((group, index) => (
-                    <div
-                        key={group.id}
-                        className={`p-3 rounded-lg border text-sm flex items-center justify-between ${group.status === 'posting' ? 'bg-blue-50 border-blue-200' :
-                                group.status === 'success' ? 'bg-green-50 border-green-200' :
-                                    group.status === 'failed' ? 'bg-red-50 border-red-200' :
-                                        'bg-gray-50 border-gray-200'
-                            }`}
-                    >
-                        <div className="flex items-center gap-2">
-                            <span className={`font-semibold ${index === _currentGroupIndex && _isPosting ? 'text-blue-600' : 'text-gray-700'}`}>
-                                グループ {index + 1}
-                            </span>
-                            <span className="text-gray-500 text-xs">({group.images.length}枚)</span>
-                        </div>
-
-                        <div className="flex items-center gap-2">
-                            {group.status === 'posting' && (
-                                <span className="flex items-center gap-1 text-blue-600">
-                                    <Loader2 className="w-3 h-3 animate-spin" />
-                                    投稿中...
-                                </span>
-                            )}
-                            {group.status === 'success' && (
-                                <span className="flex items-center gap-1 text-green-600">
-                                    <CheckCircle2 className="w-3 h-3" />
-                                    成功
-                                </span>
-                            )}
-                            {group.status === 'failed' && (
-                                <div className="text-right">
-                                    <span className="flex items-center gap-1 text-red-600">
-                                        <AlertCircle className="w-3 h-3" />
-                                        失敗
-                                    </span>
-                                    {group.error && <span className="text-xs text-red-500 block max-w-[150px] truncate">{group.error}</span>}
-                                </div>
-                            )}
-                            {group.status === 'pending' && <span className="text-gray-400">待機中</span>}
-                        </div>
+                {groups.length === 0 ? (
+                    <div className="text-center py-8 text-gray-500 bg-gray-50/50 rounded-lg border border-dashed border-gray-200">
+                        <Clock className="w-8 h-8 mx-auto mb-2 text-gray-400" />
+                        待機中...
                     </div>
-                ))}
+                ) : (
+                    <>
+                        <div className="bg-gray-100 rounded-full h-2 overflow-hidden">
+                            <div
+                                className="bg-pop-cyan h-full transition-all duration-500 shadow-[0_0_10px_#00ffff]"
+                                style={{ width: `${progress}%` }}
+                            />
+                        </div>
+
+                        <div className="flex justify-between text-sm font-medium text-gray-600">
+                            <span>進行状況: {successCount} / {groups.length} グループ完了</span>
+                            <span>{progress}%</span>
+                        </div>
+
+                        <div className="space-y-2 max-h-[300px] overflow-y-auto pr-1 custom-scrollbar">
+                            {groups.map((group, index) => (
+                                <div
+                                    key={group.id}
+                                    className={`p-3 rounded-lg border text-sm flex items-center justify-between transition-colors ${group.status === 'posting' ? 'bg-pop-cyan/10 border-pop-cyan' :
+                                        group.status === 'success' ? 'bg-pop-lime/10 border-pop-lime' :
+                                            group.status === 'failed' ? 'bg-pop-magenta/10 border-pop-magenta' :
+                                                'bg-gray-50 border-gray-200'
+                                        }`}
+                                >
+                                    <div className="flex items-center gap-2">
+                                        <span className={`font-semibold ${index === _currentGroupIndex && isPosting ? 'text-pop-cyan' : 'text-gray-700'}`}>
+                                            グループ {index + 1}
+                                        </span>
+                                        <span className="text-gray-500 text-xs">({group.images.length}枚)</span>
+                                    </div>
+
+                                    <div className="flex items-center gap-2">
+                                        {group.status === 'posting' && <span className="text-pop-cyan animate-pulse">投稿中...</span>}
+                                        {group.status === 'success' && <span className="text-green-600 flex items-center"><CheckCircle2 className="w-4 h-4 mr-1" />成功</span>}
+                                        {group.status === 'failed' && <span className="text-pop-magenta flex items-center"><AlertCircle className="w-4 h-4 mr-1" />失敗</span>}
+                                        {group.status === 'pending' && <span className="text-gray-400">待機中</span>}
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </>
+                )}
+            </div>
+
+            {/* Bottom: Latest Tweets */}
+            <div className="space-y-4 bg-white/80 backdrop-blur-sm p-4 rounded-xl border border-pop-magenta shadow-lg h-fit">
+                <div className="flex items-center justify-between">
+                    <h3 className="font-bold text-gray-700 flex items-center gap-2">
+                        <Twitter className="w-5 h-5 text-blue-400" />
+                        最新の投稿 (5件)
+                    </h3>
+                    <button onClick={fetchTimeline} disabled={loadingTimeline} className="text-xs text-blue-500 hover:text-blue-600 underline">
+                        更新
+                    </button>
+                </div>
+
+                {loadingTimeline ? (
+                    <div className="p-4 text-center text-gray-500">
+                        <Loader2 className="w-6 h-6 animate-spin mx-auto mb-2" />
+                        読み込み中...
+                    </div>
+                ) : timeline.length === 0 ? (
+                    <div className="p-4 text-center text-gray-400 text-sm">
+                        表示できるツイートがありません
+                    </div>
+                ) : (
+                    <div className="space-y-3">
+                        {timeline.map((tweet) => (
+                            <div key={tweet.id} className="p-3 bg-white/60 rounded border border-gray-100 shadow-sm hover:shadow-md transition-shadow">
+                                <p className="text-sm text-gray-800 break-words whitespace-pre-wrap">{tweet.text}</p>
+                                <span className="text-xs text-gray-400 block mt-1 text-right">
+                                    {new Date(tweet.createdAt).toLocaleString()}
+                                </span>
+                            </div>
+                        ))}
+                    </div>
+                )}
             </div>
         </div>
     );

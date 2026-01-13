@@ -36,18 +36,18 @@ function App() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-20 font-sans">
+    <div className="min-h-screen pb-20 font-sans">
       <Header />
       <main className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
         <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-8">
           <div className="col-span-1 lg:col-span-2 space-y-8">
             {/* Image Upload Area */}
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+            <div className="bg-white/80 backdrop-blur-sm rounded-xl shadow-lg border border-white/50 p-6">
               <ImageUploader images={images} setImages={setImages} />
             </div>
 
             {/* Text Input Area */}
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+            <div className="bg-white/80 backdrop-blur-sm rounded-xl shadow-lg border border-white/50 p-6">
               <PostComposer text={text} setText={setText} />
             </div>
 
@@ -56,9 +56,9 @@ function App() {
               <button
                 onClick={handlePost}
                 disabled={isPosting || images.length === 0}
-                className={`flex-1 font-bold py-4 rounded-xl transition-all shadow-lg shadow-gray-200 ${isPosting || images.length === 0
+                className={`flex-1 font-bold py-4 rounded-xl transition-all shadow-lg ${isPosting || images.length === 0
                   ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                  : 'bg-black text-white hover:bg-gray-800 hover:shadow-xl hover:-translate-y-0.5'
+                  : 'bg-black text-white hover:bg-gray-800 hover:shadow-xl hover:-translate-y-0.5 hover:shadow-pop-cyan/50'
                   }`}
               >
                 {isPosting ? '自動投稿を実行中...' : '自動投稿を開始する'}
@@ -66,7 +66,7 @@ function App() {
               <button
                 onClick={handleReset}
                 disabled={isPosting}
-                className="px-6 py-4 rounded-xl font-bold bg-white border border-gray-300 hover:bg-gray-50 transition-colors text-gray-700 disabled:opacity-50"
+                className="px-6 py-4 rounded-xl font-bold bg-white/90 border border-gray-300 hover:bg-white transition-colors text-gray-700 disabled:opacity-50"
               >
                 リセット
               </button>
@@ -75,8 +75,7 @@ function App() {
 
           <div className="col-span-1 space-y-8">
             {/* Sidebar: Status */}
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 sticky top-24">
-              <h2 className="text-lg font-semibold mb-4">投稿状況</h2>
+            <div className="lg:sticky lg:top-24">
               <StatusMonitor
                 groups={groups}
                 isPosting={isPosting}
@@ -87,8 +86,8 @@ function App() {
         </div>
 
         {/* History Section */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-          <h2 className="text-lg font-semibold mb-4">投稿履歴</h2>
+        <div className="bg-white/80 backdrop-blur-sm rounded-xl shadow-lg border border-white/50 p-6">
+          <h2 className="text-lg font-semibold mb-4 text-gray-800">投稿履歴</h2>
           <HistoryGrid
             history={history}
             onDelete={deleteHistory}

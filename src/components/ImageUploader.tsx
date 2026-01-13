@@ -76,10 +76,10 @@ export const ImageUploader: React.FC<ImageUploaderProps> = ({ images, setImages 
                 onDrop={onDrop}
                 onDragOver={onDragOver}
                 onClick={() => fileInputRef.current?.click()}
-                className="border-2 border-dashed border-gray-300 rounded-xl p-8 flex flex-col items-center justify-center cursor-pointer hover:border-blue-500 hover:bg-blue-50 transition-colors group"
+                className="border-2 border-dashed border-gray-300 rounded-xl p-8 flex flex-col items-center justify-center cursor-pointer hover:border-pop-cyan hover:bg-pop-cyan/5 transition-all group hover:shadow-[0_0_15px_rgba(0,255,255,0.3)]"
             >
-                <div className="bg-gray-100 p-4 rounded-full mb-4 group-hover:bg-blue-100 transition-colors">
-                    <Upload className="w-8 h-8 text-gray-500 group-hover:text-blue-500" />
+                <div className="bg-gray-100 p-4 rounded-full mb-4 group-hover:bg-pop-cyan/20 transition-colors">
+                    <Upload className="w-8 h-8 text-gray-500 group-hover:text-pop-cyan" />
                 </div>
                 <p className="text-gray-600 font-medium mb-1">
                     ドラッグ＆ドロップ または クリックして選択

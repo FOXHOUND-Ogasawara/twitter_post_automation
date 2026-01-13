@@ -6,6 +6,17 @@ export interface PostResponse {
   postId: string;
 }
 
+export interface Tweet {
+  id: string;
+  text: string;
+  createdAt: string;
+}
+
+export interface TimelineResponse {
+  success: boolean;
+  tweets: Tweet[];
+}
+
 export const postTweet = async (
   text: string,
   images: string[]
@@ -18,5 +29,15 @@ export const postTweet = async (
     const err = error as any;
     console.error("API Error:", err);
     throw err.response?.data?.error || new Error("Failed to post");
+  }
+};
+
+export const getTimeline = async (): Promise<Tweet[]> => {
+  try {
+    const response = await axios.get<TimelineResponse>("/api/timeline");
+    return response.data.tweets;
+  } catch (error: unknown) {
+    console.error("Failed to fetch timeline:", error);
+    return [];
   }
 };
