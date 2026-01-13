@@ -12,7 +12,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(400).json({ error: "Missing text or images" });
   }
 
-  // Ensure environment variables are set
   if (
     !process.env.X_API_KEY ||
     !process.env.X_API_KEY_SECRET ||
@@ -31,27 +30,31 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   });
 
   try {
-    // 1. Upload Media
-    // Twitter API v1.1 upload endpoint supports binary or base64.
-    // The library wrapper helps us.
     const mediaIds = await Promise.all(
       images.map(async (base64Image: string) => {
         // Detect mime type
         const match = base64Image.match(/^data:(image\/\w+);base64,/);
-        const mimeType = match ? match[1] : "image/jpeg"; // Default to jpeg if not found
+        const mimeType = match ? match[1] : "image/jpeg";
 
-        // Remove data header if present
+        // Map mime to extension for twitter-api-v2 'type' option
+        // It helps form-data determine filename/content-type
+        let type = "jpg";
+        if (mimeType === "image/png") type = "png";
+        if (mimeType === "image/gif") type = "gif";
+        if (mimeType === "image/webp") type = "webp";
+
         const cleanBase64 = base64Image.replace(/^data:image\/\w+;base64,/, "");
         const imageBuffer = Buffer.from(cleanBase64, "base64");
 
-        // Upload media with mimeType
-        const mediaId = await client.v1.uploadMedia(imageBuffer, { mimeType });
+        // Pass both mimeType and type (extension) to be safe
+        const mediaId = await client.v1.uploadMedia(imageBuffer, {
+          mimeType,
+          type,
+        });
         return mediaId;
       })
     );
 
-    // 2. Post Tweet
-    // Twitter API v2
     const tweet = await client.v2.tweet(text, {
       media: { media_ids: mediaIds },
     });
@@ -64,7 +67,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   } catch (error: unknown) {
     const err = error as any;
     console.error("Twitter API Error:", err);
-    // Rate limit errors, etc.
     return res.status(500).json({
       error: err.message || "Internal Server Error",
       details: err.data || undefined,
